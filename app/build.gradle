@@ -51,4 +51,7 @@ dependencies {
     //phone number library
     api 'com.googlecode.libphonenumber:libphonenumber:8.8.0'
 
+    implementation 'com.google.android.gms:play-services-cast-framework:18.0.0'
+
+
 }

@@ -1,13 +1,14 @@
 package com.movie.exoplayerplayground
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.TrackGroupArray
@@ -15,7 +16,18 @@ import com.google.android.exoplayer2.trackselection.TrackSelectionArray
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
+import com.google.android.gms.cast.MediaInfo
+import com.google.android.gms.cast.MediaLoadRequestData
+import com.google.android.gms.cast.MediaMetadata
+import com.google.android.gms.cast.MediaStatus
+import com.google.android.gms.cast.framework.CastButtonFactory
+import com.google.android.gms.cast.framework.CastContext
+import com.google.android.gms.cast.framework.CastSession
+import com.google.android.gms.cast.framework.SessionManagerListener
+import com.google.android.gms.cast.framework.media.RemoteMediaClient
+import com.movie.exoplayerplayground.cast.ControllerActivity
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.exo_playback_control_view.view.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -24,10 +36,101 @@ class MainActivity : AppCompatActivity() {
     private lateinit var simpleExoPlayer: SimpleExoPlayer
     private lateinit var mediaDataSourceFactory: DataSource.Factory
 
+    lateinit var castContext: CastContext
+    lateinit var sessionManagerListener: SessionManagerListener<CastSession>
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        startActivity(Intent(this,MindOrksActivity::class.java))
+        castContext = CastContext.getSharedInstance(this)
+        sessionManagerListener = object : SessionManagerListener<CastSession> {
+            override fun onSessionStarted(p0: CastSession?, p1: String?) {
+                // インターネットにある動画ファイルのリンク。各自用意して。
+                val uri = STREAM_URL
+                val mediaMetadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE).apply {
+                    putString(MediaMetadata.KEY_TITLE, "Title")
+                    putString(MediaMetadata.KEY_SUBTITLE, "Description")
+                    //その他にも addImage でアルバムカバー？画像？の設定が可能
+                }
+                val mediaInfo = MediaInfo.Builder(uri).apply {
+                    setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                    setContentType("videos/mp4")
+                    setMetadata(mediaMetadata)
+                }
+                val mediaLoadRequestData = MediaLoadRequestData.Builder().apply {
+                    setMediaInfo(mediaInfo.build())
+                }
+                val remoteMediaClient = p0?.remoteMediaClient
+                remoteMediaClient?.load(mediaLoadRequestData.build())
+
+                remoteMediaClient?.registerCallback(object : RemoteMediaClient.Callback() {
+                    override fun onStatusUpdated() {
+                        super.onStatusUpdated()
+                        if (remoteMediaClient.playerState == MediaStatus.PLAYER_STATE_IDLE) {
+                            println("再生終了")
+                        }
+                    }
+                })
+                showCastView(this@MainActivity)
+
+            }
+
+            override fun onSessionResumeFailed(p0: CastSession?, p1: Int) {
+
+            }
+
+            override fun onSessionSuspended(p0: CastSession?, p1: Int) {
+
+            }
+
+            override fun onSessionEnded(p0: CastSession?, p1: Int) {
+
+            }
+
+            override fun onSessionResumed(p0: CastSession?, p1: Boolean) {
+
+            }
+
+            override fun onSessionStarting(p0: CastSession?) {
+
+            }
+
+            override fun onSessionResuming(p0: CastSession?, p1: String?) {
+
+            }
+
+            override fun onSessionEnding(p0: CastSession?) {
+
+            }
+
+            override fun onSessionStartFailed(p0: CastSession?, p1: Int) {
+
+            }
+
+        }
+
+    }
+
+    fun showCastView(context: Context) {
+        val castSession =
+            CastContext.getSharedInstance(context).sessionManager.currentCastSession
+        if (castSession == null || !castSession.isConnected) {
+            Log.w(
+               "showCastView",
+                "showQueuePopup(): not connected to a cast device"
+            )
+            return
+        }
+        val remoteMediaClient = castSession.remoteMediaClient
+        if (remoteMediaClient == null) {
+            Log.w("showCastView",
+                "showQueuePopup(): null RemoteMediaClient"
+            )
+            return
+        }
+        val intent = Intent(context, ControllerActivity::class.java)
+        context.startActivity(intent)
     }
 
     private fun initializePlayer() {
@@ -112,6 +215,10 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        CastButtonFactory.setUpMediaRouteButton(this,
+            playerView.media_route_btn
+        )
+
     }
 
     private fun releasePlayer() {
@@ -128,12 +235,22 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
 
         if (Util.SDK_INT <= 23) initializePlayer()
+
+        castContext.sessionManager.addSessionManagerListener(
+            sessionManagerListener,
+            CastSession::class.java
+        )
     }
 
     public override fun onPause() {
         super.onPause()
 
         if (Util.SDK_INT <= 23) releasePlayer()
+
+        castContext.sessionManager.removeSessionManagerListener(
+            sessionManagerListener,
+            CastSession::class.java
+        )
     }
 
     public override fun onStop() {
