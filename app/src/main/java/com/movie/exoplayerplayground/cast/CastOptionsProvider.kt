@@ -13,11 +13,11 @@ import com.google.android.gms.cast.framework.media.NotificationOptions
 
         //ExpandedControllerActivityに必要
         val notificationOptions = NotificationOptions.Builder()
-            .setTargetActivityClassName(ControllerActivity::class.java.getName())
+            .setTargetActivityClassName(ControllerActivity::class.java.name)
             .build()
         val mediaOptions = CastMediaOptions.Builder()
             .setNotificationOptions(notificationOptions)
-            .setExpandedControllerActivityClassName(ControllerActivity::class.java.getName())
+            .setExpandedControllerActivityClassName(ControllerActivity::class.java.name)
             .build()
 
         // 5ドル払わないので受信側をデフォルトにする。

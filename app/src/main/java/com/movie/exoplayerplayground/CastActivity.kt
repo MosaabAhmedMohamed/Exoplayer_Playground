@@ -1,17 +1,19 @@
 package com.movie.exoplayerplayground
 
 import android.os.Bundle
+import android.service.carrier.CarrierMessagingService
+import android.util.Log
 import android.view.Menu
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.cast.MediaInfo
-import com.google.android.gms.cast.MediaLoadRequestData
-import com.google.android.gms.cast.MediaMetadata
-import com.google.android.gms.cast.MediaStatus
+import androidx.fragment.app.FragmentActivity
+import com.google.android.gms.cast.*
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
 import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
+import com.google.android.gms.common.api.ResultCallback
+
 
 class CastActivity : AppCompatActivity() {
 
@@ -31,19 +33,47 @@ class CastActivity : AppCompatActivity() {
                 val mediaMetadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE).apply {
                     putString(MediaMetadata.KEY_TITLE, "たいとるだよ")
                     putString(MediaMetadata.KEY_SUBTITLE, "サブタイトルだよ")
-                    //その他にも addImage でアルバムカバー？画像？の設定が可能
                 }
+
+                val englishSubtitle = MediaTrack.Builder(1, MediaTrack.TYPE_TEXT)
+                    .setName("English Subtitle")
+                    .setSubtype(MediaTrack.SUBTYPE_SUBTITLES)
+                    .setContentId("https://commondatastorage.googleapis.com/gtv-videos-bucket/CastVideos/tracks/DesigningForGoogleCast-en.vtt") /* language is required for subtitle type but optional otherwise */
+                    .setLanguage("en-US")
+                    .build()
+
+                val arSubtitle = MediaTrack.Builder(2, MediaTrack.TYPE_TEXT)
+                    .setName("ar Subtitle")
+                    .setSubtype(MediaTrack.SUBTYPE_SUBTITLES)
+                    .setContentId("https://commondatastorage.googleapis.com/gtv-videos-bucket/CastVideos/tracks/DesigningForGoogleCast-en.vtt") /* language is required for subtitle type but optional otherwise */
+                    .setLanguage("ar-EG")
+                    .build()
+
                 val mediaInfo = MediaInfo.Builder(uri).apply {
                     setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
-                    setContentType("videos/mp4")
+                    setContentType("video/mp4")
                     setMetadata(mediaMetadata)
+                    setMediaTracks(listOf(englishSubtitle, arSubtitle))
+
+
                 }
                 val mediaLoadRequestData = MediaLoadRequestData.Builder().apply {
                     setMediaInfo(mediaInfo.build())
+                        .setAutoplay(true)
                 }
                 val remoteMediaClient = p0?.remoteMediaClient
                 remoteMediaClient?.load(mediaLoadRequestData.build())
+                // the ID for the French subtitle is '2' and for the French audio '3'
+                Log.e("remoteMediaClient", "Failed with status code:" );
 
+                // the ID for the French subtitle is '2' and for the French audio '3'
+                remoteMediaClient?.setActiveMediaTracks(longArrayOf(2, 3))?.setResultCallback {
+                    Log.e("remoteMediaClient", "Failed with status code:" + it.status.statusCode);
+
+                    if (!it.status.isSuccess) {
+                        Log.e("remoteMediaClient", "Failed with status code:" + it.status.statusCode);
+                    }
+                }
                 remoteMediaClient?.registerCallback(object : RemoteMediaClient.Callback() {
                     override fun onStatusUpdated() {
                         super.onStatusUpdated()
@@ -52,7 +82,6 @@ class CastActivity : AppCompatActivity() {
                         }
                     }
                 })
-
             }
 
             override fun onSessionResumeFailed(p0: CastSession?, p1: Int) {
